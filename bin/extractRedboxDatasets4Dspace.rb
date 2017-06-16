@@ -56,8 +56,6 @@ class RedboxDataset4Dspace
   REGEX_TARGET_NOTE = /(^|[^a-z])dspace($|[^a-z])/i
   DOI_CITATION_LHS = "http://dx.doi.org/???  or  doi:"
 
-  INDEX_MAX = 50		# FIXME: Consider calculating for each record & parameter?
-
   CSV_OUT_FIELDS = [
     # CSV columns will appear in the order below.
     #
@@ -168,7 +166,7 @@ class RedboxDataset4Dspace
   end
 
   ############################################################################
-  def get_creators(pkg_json, index_max=INDEX_MAX)
+  def get_creators(pkg_json)
     # FIXME: Algorithm below indicates we cannot tell difference between
     # a family name & a given name. Is that ok?
 
@@ -177,6 +175,8 @@ class RedboxDataset4Dspace
     # - Names derived from Mint or NLA are less likely to contain typos
     # - Local-ReDBox names will also be included
     # - Sometimes there is no citation from which to derive names
+
+    index_max = self.class.get_max_index(pkg_json, /dc:creator\.foaf:Person\.(\d+)\.foaf:(familyName|givenName)/)
     @metadata[:dc_creators] = []
     (1..index_max).each{|i|
       family_name = pkg_json["dc:creator.foaf:Person.#{i}.foaf:familyName"].to_s.strip
@@ -194,7 +194,7 @@ class RedboxDataset4Dspace
   end
 
   ############################################################################
-  def get_rights(pkg_json, index_max=INDEX_MAX)
+  def get_rights(pkg_json)
     # FIXME: What do we want for DSpace dc.rights?
     @metadata[:dc_rights] = []
     [
@@ -209,7 +209,8 @@ class RedboxDataset4Dspace
   end
 
   ############################################################################
-  def get_funders(pkg_json, index_max=INDEX_MAX)
+  def get_funders(pkg_json)
+    index_max = self.class.get_max_index(pkg_json, /foaf:fundedBy\.foaf:Agent\.(\d+)\.skos:prefLabel/)
     @metadata[:funders] = []
     (1..index_max).each{|i|
       funder = pkg_json["foaf:fundedBy.foaf:Agent.#{i}.skos:prefLabel"].to_s.strip
@@ -218,7 +219,8 @@ class RedboxDataset4Dspace
   end
 
   ############################################################################
-  def get_grant_numbers(pkg_json, index_max=INDEX_MAX)
+  def get_grant_numbers(pkg_json)
+    index_max = self.class.get_max_index(pkg_json, /foaf:fundedBy\.vivo:Grant\.(\d+)\.(redbox:grantNumber|skos:prefLabel)/)
     @metadata[:grant_numbers] = []
     (1..index_max).each{|i|
       grant_number = pkg_json["foaf:fundedBy.vivo:Grant.#{i}.redbox:grantNumber"].to_s.strip
@@ -247,6 +249,20 @@ class RedboxDataset4Dspace
   end
 
   ############################################################################
+  def self.get_max_index(json_hash, regex)
+    # The regex arg is expected to enclose the key's integer index within the
+    # first bracket. Eg. Use /pre\.(\d+)\.post/ to find elements:
+    #     pre.1.post, pre.2.post, pre.3.post, ... pre.290.post
+    # and return integer 290.
+    index_list = json_hash.keys.inject([]){|accum,key|
+      key.match(regex)
+      accum << $1.to_i if $1
+      accum
+    }
+    index_list.empty? ? 0 : index_list.max
+  end
+
+  ############################################################################
   def self.get_filepath_pkg(fpath_obj)
     obj_strings = File.open(fpath_obj).read.split(NEWLINE)
     fpath_other_pkg = get_field(obj_strings, "file.path")
@@ -260,8 +276,9 @@ class RedboxDataset4Dspace
     pkg_json = YAML.load(pkg_str)			# Convert JSON to a hash
 
     # Return fpath_pkg if we match regex /dspace/i in a note.
+    index_max = get_max_index(pkg_json, /skos:note.(\d+).dc:description/)
     found = false
-    (1..INDEX_MAX).each{|i| found = true if pkg_json["skos:note.#{i}.dc:description"].to_s.match(REGEX_TARGET_NOTE)}
+    (1..index_max).each{|i| found = true if pkg_json["skos:note.#{i}.dc:description"].to_s.match(REGEX_TARGET_NOTE)}
     found ? fpath_pkg : nil
 
     #fpath_pkg	# FIXME: Return all datasets (instead of only those which match REGEX_TARGET_NOTE)
