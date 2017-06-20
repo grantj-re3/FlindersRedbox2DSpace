@@ -176,7 +176,7 @@ class RedboxDataset4Dspace
 
     get_creators(pkg_json)
     get_rights(pkg_json)
-    get_funders(pkg_json)
+    get_simple_multivalue_field(pkg_json, :funders, "foaf:fundedBy.foaf:Agent.%s.skos:prefLabel")
     get_grant_numbers(pkg_json)
     get_subjects(pkg_json)
   end
@@ -184,50 +184,24 @@ class RedboxDataset4Dspace
   ############################################################################
   def get_subjects(pkg_json)
     metadata_key = :subjects
-    get_for_codes(pkg_json, metadata_key)
-    get_seo_codes(pkg_json, metadata_key)
-    get_keywords(pkg_json, metadata_key)
+    # FOR codes, SEO codes, keywords
+    get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.anzsrc:for.%s.skos:prefLabel")
+    get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.anzsrc:seo.%s.skos:prefLabel")
+    get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.vivo:keyword.%s.rdf:PlainLiteral")
   end
 
   ############################################################################
-  def get_for_codes(pkg_json, metadata_key)
-    redbox_key = "dc:subject.anzsrc:for.%s.skos:prefLabel"	# printf format string
+  def get_simple_multivalue_field(pkg_json, metadata_key, redbox_key)
+    # redbox_key is a printf format-string of the form "pre.%s.post" where
+    # "%s" is the position of an integer index.
     regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
     index_max = self.class.get_max_index(pkg_json, regex)
 
     @metadata[metadata_key] ||= []
     (1..index_max).each{|i|
       redbox_ikey = redbox_key % [i.to_s]
-      for_code = pkg_json[redbox_ikey].to_s.strip
-      @metadata[metadata_key] << for_code unless for_code.empty?
-    }
-  end
-
-  ############################################################################
-  def get_seo_codes(pkg_json, metadata_key)
-    redbox_key = "dc:subject.anzsrc:seo.%s.skos:prefLabel"	# printf format string
-    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
-    index_max = self.class.get_max_index(pkg_json, regex)
-
-    @metadata[metadata_key] ||= []
-    (1..index_max).each{|i|
-      redbox_ikey = redbox_key % [i.to_s]
-      for_code = pkg_json[redbox_ikey].to_s.strip
-      @metadata[metadata_key] << for_code unless for_code.empty?
-    }
-  end
-
-  ############################################################################
-  def get_keywords(pkg_json, metadata_key)
-    redbox_key = "dc:subject.vivo:keyword.%s.rdf:PlainLiteral"	# printf format string
-    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
-    index_max = self.class.get_max_index(pkg_json, regex)
-
-    @metadata[metadata_key] ||= []
-    (1..index_max).each{|i|
-      redbox_ikey = redbox_key % [i.to_s]
-      keyword = pkg_json[redbox_ikey].to_s.strip
-      @metadata[metadata_key] << keyword unless keyword.empty?
+      value = pkg_json[redbox_ikey].to_s.strip
+      @metadata[metadata_key] << value unless value.empty?
     }
   end
 
@@ -266,20 +240,6 @@ class RedboxDataset4Dspace
     ].each{|key|
       value = pkg_json[key].to_s.strip
       @metadata[:dc_rights] << value unless value.empty?
-    }
-  end
-
-  ############################################################################
-  def get_funders(pkg_json)
-    redbox_key = "foaf:fundedBy.foaf:Agent.%s.skos:prefLabel"	# printf format string
-    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
-    index_max = self.class.get_max_index(pkg_json, regex)
-
-    @metadata[:funders] = []
-    (1..index_max).each{|i|
-      redbox_ikey = redbox_key % [i.to_s]
-      funder = pkg_json[redbox_ikey].to_s.strip
-      @metadata[:funders] << funder unless funder.empty?
     }
   end
 
