@@ -54,8 +54,9 @@ class RedboxDataset4Dspace
   FNAME_VPKG_INDEX = "tfpackage_Version_Index.json"
 
   REGEX_TARGET_NOTE = /(^|[^a-z])dspace($|[^a-z])/i
-  DOI_CITATION_LHS = "http://dx.doi.org/???  or  doi:"
+  DOI_CITATION_LHS = "http://dx.doi.org/"
 
+  # FIXME: Perhaps dc.language.iso rather than "dc.language?
   CSV_OUT_FIELDS = [
     # CSV columns will appear in the order below.
     #
@@ -69,16 +70,18 @@ class RedboxDataset4Dspace
     [:single_value,	:dc_title,		"dc.title[en_US]"],
     [:single_value,	:dc_type,		"dc.type[en_US]"],
     [:single_value,	:dc_created,		"dc.date"],
-    [:single_value,	:handle,		"dc.identifier.uri"],
 
     [:multi_value,	:dc_creators,		"dc.creator[en_US]"],
-    [:single_value,	:doi,			"dc.identifier"],
+    [:multi_value,	:ident_uris,		"dc.identifier.uri"],
     [:single_value,	:citation,		"dc.identifier.citation[en_US]"],
     [:multi_value,	:dc_rights,		"dc.rights[en_US]"],
 
 
     [:multi_value,	:funders,		"dc.description.sponsorship[en_US]"],
     [:multi_value,	:grant_numbers,		"dc.relation.grantnumber[en_US]"],
+    [:multi_value,	:subjects,		"dc.subject[en_US]"],
+
+    [:single_value,	:dc_language,		"dc.language[en_US]"],
     [:single_value,	:dc_description,	"dc.description[en_US]"],
   ]
   # Arrays derived from the above table
@@ -136,9 +139,21 @@ class RedboxDataset4Dspace
   ############################################################################
   def get_obj_metadata
     obj_strings = File.open(@fpath_obj).read.split(NEWLINE)
+    get_ident_uris(obj_strings)
+  end
 
+  ############################################################################
+  def get_ident_uris(obj_strings)
     @metadata[:doi] = self.class.get_field(obj_strings, "andsDoi")
     @metadata[:handle] = self.class.get_field(obj_strings, "handle").to_s.gsub(/\\/, "")
+
+    doi = @metadata[:doi]
+    handle = @metadata[:handle]
+
+    metadata_key = :ident_uris
+    @metadata[metadata_key] = []
+    @metadata[metadata_key] << handle unless handle.empty?
+    @metadata[metadata_key] << "#{DOI_CITATION_LHS}#{doi}" if doi
   end
 
   ############################################################################
@@ -153,8 +168,8 @@ class RedboxDataset4Dspace
     @metadata[:dc_title] = pkg_json["dc:title"]
     @metadata[:dc_type] = pkg_json["dc:type.rdf:PlainLiteral"]
     @metadata[:dc_created] = pkg_json["dc:created"]
-    # @metadata[:dc_modified] = pkg_json["dc:modified"]	# FIXME: Let DSpace control this?
     @metadata[:dc_description] = pkg_json["dc:description"]
+    @metadata[:dc_language] = pkg_json["dc:language.skos:prefLabel"]
 
     # Citation will be a printf format-string, hence "%s" will be replaced with DOI
     @metadata[:citation] = pkg_json["dc:biblioGraphicCitation.skos:prefLabel"].gsub(/ *\{ID_WILL_BE_HERE\}/, "%s")
@@ -163,13 +178,61 @@ class RedboxDataset4Dspace
     get_rights(pkg_json)
     get_funders(pkg_json)
     get_grant_numbers(pkg_json)
+    get_subjects(pkg_json)
+  end
+
+  ############################################################################
+  def get_subjects(pkg_json)
+    metadata_key = :subjects
+    get_for_codes(pkg_json, metadata_key)
+    get_seo_codes(pkg_json, metadata_key)
+    get_keywords(pkg_json, metadata_key)
+  end
+
+  ############################################################################
+  def get_for_codes(pkg_json, metadata_key)
+    redbox_key = "dc:subject.anzsrc:for.%s.skos:prefLabel"	# printf format string
+    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
+    index_max = self.class.get_max_index(pkg_json, regex)
+
+    @metadata[metadata_key] ||= []
+    (1..index_max).each{|i|
+      redbox_ikey = redbox_key % [i.to_s]
+      for_code = pkg_json[redbox_ikey].to_s.strip
+      @metadata[metadata_key] << for_code unless for_code.empty?
+    }
+  end
+
+  ############################################################################
+  def get_seo_codes(pkg_json, metadata_key)
+    redbox_key = "dc:subject.anzsrc:seo.%s.skos:prefLabel"	# printf format string
+    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
+    index_max = self.class.get_max_index(pkg_json, regex)
+
+    @metadata[metadata_key] ||= []
+    (1..index_max).each{|i|
+      redbox_ikey = redbox_key % [i.to_s]
+      for_code = pkg_json[redbox_ikey].to_s.strip
+      @metadata[metadata_key] << for_code unless for_code.empty?
+    }
+  end
+
+  ############################################################################
+  def get_keywords(pkg_json, metadata_key)
+    redbox_key = "dc:subject.vivo:keyword.%s.rdf:PlainLiteral"	# printf format string
+    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
+    index_max = self.class.get_max_index(pkg_json, regex)
+
+    @metadata[metadata_key] ||= []
+    (1..index_max).each{|i|
+      redbox_ikey = redbox_key % [i.to_s]
+      keyword = pkg_json[redbox_ikey].to_s.strip
+      @metadata[metadata_key] << keyword unless keyword.empty?
+    }
   end
 
   ############################################################################
   def get_creators(pkg_json)
-    # FIXME: Algorithm below indicates we cannot tell difference between
-    # a family name & a given name. Is that ok?
-
     # Person names below are extracted from the ReDBox People-tab. This
     # is better than attempting to extract from the Citation-tab because:
     # - Names derived from Mint or NLA are less likely to contain typos
@@ -195,13 +258,11 @@ class RedboxDataset4Dspace
 
   ############################################################################
   def get_rights(pkg_json)
-    # FIXME: What do we want for DSpace dc.rights?
     @metadata[:dc_rights] = []
     [
       "dc:accessRights.skos:prefLabel",
       "dc:accessRights.dc:RightsStatement.skos:prefLabel",
       "dc:license.skos:prefLabel",
-      "dc:license.dc:identifier",
     ].each{|key|
       value = pkg_json[key].to_s.strip
       @metadata[:dc_rights] << value unless value.empty?
@@ -210,10 +271,14 @@ class RedboxDataset4Dspace
 
   ############################################################################
   def get_funders(pkg_json)
-    index_max = self.class.get_max_index(pkg_json, /foaf:fundedBy\.foaf:Agent\.(\d+)\.skos:prefLabel/)
+    redbox_key = "foaf:fundedBy.foaf:Agent.%s.skos:prefLabel"	# printf format string
+    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
+    index_max = self.class.get_max_index(pkg_json, regex)
+
     @metadata[:funders] = []
     (1..index_max).each{|i|
-      funder = pkg_json["foaf:fundedBy.foaf:Agent.#{i}.skos:prefLabel"].to_s.strip
+      redbox_ikey = redbox_key % [i.to_s]
+      funder = pkg_json[redbox_ikey].to_s.strip
       @metadata[:funders] << funder unless funder.empty?
     }
   end
@@ -226,6 +291,13 @@ class RedboxDataset4Dspace
       grant_number = pkg_json["foaf:fundedBy.vivo:Grant.#{i}.redbox:grantNumber"].to_s.strip
       grant_label = pkg_json["foaf:fundedBy.vivo:Grant.#{i}.skos:prefLabel"].to_s.strip
       next if grant_number.empty? && grant_label.empty?
+
+      unless grant_label.empty?
+        # Strip out Mint data-source. Eg. Remove "(MIS Projects) "
+        # from "(MIS Projects) 12345 NHMRC Research Fellowship..."
+        grant_label.match(/^\([^\)]*\) (.*)$/)
+        grant_label = $1 if $1
+      end
 
       @metadata[:grant_numbers] << if !grant_number.empty? && !grant_label.empty?
         "#{grant_number}: #{grant_label}"
