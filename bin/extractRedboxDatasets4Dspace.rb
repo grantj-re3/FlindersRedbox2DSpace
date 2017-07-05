@@ -45,11 +45,12 @@ require "dspace_utils"
 
 ##############################################################################
 class RedboxDataset4Dspace
+  # FIXME: Consider extracting metadata from SOLR instead of storage folder
   include DSpaceUtils
 
   DEBUG = false
 
-  FPATH_REDBOX_STORAGE = "/PATH/TO/REDBOX/storage"
+  FPATH_REDBOX_STORAGE = "#{ENV['HOME']}/path/to/redbox/storage"
   FNAME_OBJECT = "TF-OBJ-META"
   FNAME_VPKG_INDEX = "tfpackage_Version_Index.json"
 
@@ -71,7 +72,7 @@ class RedboxDataset4Dspace
     [:single_value,	:dc_type,		"dc.type[en_US]"],
     [:single_value,	:dc_created,		"dc.date"],
 
-    [:multi_value,	:dc_creators,		"dc.creator[en_US]"],
+    [:multi_value,	:dc_creators,		"dc.contributor.author[en_US]"],
     [:multi_value,	:ident_uris,		"dc.identifier.uri"],
     [:single_value,	:citation,		"dc.identifier.citation[en_US]"],
     [:multi_value,	:dc_rights,		"dc.rights[en_US]"],
@@ -185,23 +186,23 @@ class RedboxDataset4Dspace
   def get_subjects(pkg_json)
     metadata_key = :subjects
     # FOR codes, SEO codes, keywords
-    get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.anzsrc:for.%s.skos:prefLabel")
-    get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.anzsrc:seo.%s.skos:prefLabel")
+    get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.anzsrc:for.%s.skos:prefLabel", :value_prefix => "ANZSRC FoR: ")
+    get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.anzsrc:seo.%s.skos:prefLabel", :value_prefix => "ANZSRC SEO: ")
     get_simple_multivalue_field(pkg_json, metadata_key, "dc:subject.vivo:keyword.%s.rdf:PlainLiteral")
   end
 
   ############################################################################
-  def get_simple_multivalue_field(pkg_json, metadata_key, redbox_key)
+  def get_simple_multivalue_field(pkg_json, metadata_key, redbox_key, opts={})
     # redbox_key is a printf format-string of the form "pre.%s.post" where
     # "%s" is the position of an integer index.
-    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )
+    regex = Regexp.new( Regexp.escape(redbox_key) % ["(\\d+)"] )	# Eg. /pre\.(\d+)\.post/
     index_max = self.class.get_max_index(pkg_json, regex)
 
     @metadata[metadata_key] ||= []
     (1..index_max).each{|i|
-      redbox_ikey = redbox_key % [i.to_s]
+      redbox_ikey = redbox_key % [i.to_s]				# Eg. "pre.1.post"
       value = pkg_json[redbox_ikey].to_s.strip
-      @metadata[metadata_key] << value unless value.empty?
+      @metadata[metadata_key] << "#{opts[:value_prefix]}#{value}" unless value.empty?
     }
   end
 
@@ -249,6 +250,7 @@ class RedboxDataset4Dspace
     @metadata[:grant_numbers] = []
     (1..index_max).each{|i|
       grant_number = pkg_json["foaf:fundedBy.vivo:Grant.#{i}.redbox:grantNumber"].to_s.strip
+      grant_number = "" if grant_number.match(/^[23]0[0-9]{8}$/)	# FIXME: Not a grant number (but a Flinders Research MIS ID)
       grant_label = pkg_json["foaf:fundedBy.vivo:Grant.#{i}.skos:prefLabel"].to_s.strip
       next if grant_number.empty? && grant_label.empty?
 
