@@ -13,7 +13,7 @@ class File
   # * Argument _str_: The string to be written into the file.
   def self.write_string(filename, str)
     begin
-      File.open(filename, 'w').write(str)
+      File.open(filename, 'w'){|f| f.write(str)}
     rescue Exception => ex
       STDERR.puts "Error writing to file: #{filename}\nPerhaps file is in use?\n#{ex}"
       exit 1
