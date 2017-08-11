@@ -69,7 +69,10 @@ class BmetCsvPair
 
     @dspace_csv_result_fpath = dspace_csv_result_fpath
     allow_write_dspace_csv_result
+  end
 
+  ############################################################################
+  def parse_bmet_csv_objects
     @ds_bmet = BmetCsv.new(@dspace_csv_fpath)
     @rb_bmet = BmetCsv.new(@redbox_csv_fpath)
   end
@@ -168,8 +171,10 @@ class BmetCsvPair
     dspace_csv_result_fpath = "#{ROOT_DIR}/result/dspace_result.csv"
 
     pair = BmetCsvPair.new(redbox_csv_fpath, dspace_csv_fpath, dspace_csv_result_fpath)
+    # Assume ReDBox export/crosswalk CSV already exists.
+    pair.export_from_dspace		# Creates the DSpace export-CSV
+    pair.parse_bmet_csv_objects		# Creates objects for both CSVs
     pair.verify
-    pair.export_from_dspace
     pair.process_redbox_records
 
     puts "Writing new DSpace-BMET CSV to #{File.basename(pair.dspace_csv_result_fpath)}"
