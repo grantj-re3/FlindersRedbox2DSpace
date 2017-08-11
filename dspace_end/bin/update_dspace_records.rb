@@ -5,7 +5,7 @@
 # See the accompanying LICENSE file (or http://opensource.org/licenses/BSD-3-Clause).
 #
 # PURPOSE
-# To import new and updated ReDBox metadata into the DSpace dataset collection.
+# To import new and updated ReDBox metadata into the DSpace dataset-collection.
 #
 # NOTE
 # - The ReDBox ID is the published ReDBox handle. Note that the handle is 
@@ -23,17 +23,19 @@
 #   * The CSV will contain a ReDBox ID. It may contain a DSpace ID if
 #     manually added into ReDBox since the creation of the dataset.
 #   * Transfer the file to the DSpace server.
-# - Extract DSpace records from the dataset collection:
-#   * Use the BMET (Batch Metadata Editing Tool)
-#   * Name the resulting file dspace_export.csv
-#   * The CSV will contain both a ReDBox ID & DSpace ID.
 # - Run this program:
-#   * Extract ReDBox IDs from redbox_export.csv
-#   * Extract ReDBox IDs from dspace_export.csv
-#   * For a new record (ie. ReDBox ID in redbox_export.csv but not in
-#     dspace_export.csv) then add the record into DSpace.
-#   * For an updated record (ie. ReDBox ID in both redbox_export.csv and
-#     dspace_export.csv) then update the record in DSpace.
+#   * Export DSpace records from the dataset-collection:
+#     + Use the BMET (Batch Metadata Editing Tool)
+#     + Name the resulting file dspace_export.csv
+#     + The CSV will contain both a ReDBox ID & DSpace ID.
+#   * Create a BMET result-CSV as follows:
+#     + Examine ReDBox IDs from both redbox_export.csv & dspace_export.csv
+#     + If the ReDBox ID is in redbox_export.csv but not in dspace_export.csv,
+#       then add the record to DSpace (ie. a "+" in the "id" column).
+#     + If the ReDBox ID is in both redbox_export.csv and dspace_export.csv,
+#       then update the record in DSpace (ie. the DSpace item-ID in the
+#       "id" column).
+#   * Import the BMET result-CSV into DSpace.
 #
 # FIXME:
 # - Check what happens if we do BMET load of dc.contributor.author[en_US]

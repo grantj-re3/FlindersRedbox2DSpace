@@ -5,12 +5,15 @@
 #
 # Common config vars for ruby
 #
+# The constants which are most likely to require customisation during
+# installation have been marked with "CUSTOMISE" below.
+#
 ##############################################################################
 module CommonConfig
   ROOT_DIR = File.expand_path("..", File.dirname(__FILE__))	# Root of this app
 
-  DSPACE_HDL_PREFIX = "123456789"
-  DSPACE_DATASET_COLLECTION_HDL = "#{DSPACE_HDL_PREFIX}/999000"
+  DSPACE_HDL_PREFIX = "123456789"				# CUSTOMISE
+  DSPACE_DATASET_COLLECTION_HDL = "#{DSPACE_HDL_PREFIX}/999000"	# CUSTOMISE
 
   DSPACE_HDL_URL_PART1 = "hdl.handle.net/"	# Handle.net host part with trailing /
   DSPACE_HDL_URL_PART2 = "#{DSPACE_HDL_PREFIX}/" # Handle.net prefix with trailing /
@@ -20,7 +23,7 @@ module CommonConfig
     $
   /x
 
-  REDBOX_HDL_PREFIX = "0000"
+  REDBOX_HDL_PREFIX = "0000"					# CUSTOMISE
 
   REDBOX_HDL_URL_PART1 = DSPACE_HDL_URL_PART1	# Handle.net host part with trailing /
   REDBOX_HDL_URL_PART2 = "#{REDBOX_HDL_PREFIX}/" # Handle.net prefix with trailing /
@@ -43,9 +46,11 @@ module CommonConfig
   FCSV_IN_OPTS = FCSV_OUT_OPTS
 
   ############################################################################
+  # ENV['HOME'] is tainted; cannot use with $SAFE > 0
+  HOME_DIR = "/home/dspacedir"					# CUSTOMISE
+  DSPACE_CMD = "#{HOME_DIR}/dspace/bin/dspace"			# CUSTOMISE
+
   FORCE_OVERWRITE_DSPACE_CSV_RESULT = true
-  HOME_DIR = "/home/dspacedir"	# ENV['HOME'] is tainted; cannot use with $SAFE > 0
-  DSPACE_CMD = "#{HOME_DIR}/dspace/bin/dspace"
 
   # DSpace export info
   DS_EXP_CMD = "#{DSPACE_CMD} metadata-export"
@@ -57,7 +62,7 @@ module CommonConfig
   DS_IMP_ECHO_YES_NO_CMD = "/bin/echo %s" % [DS_IMP_IS_YES ? "y" : "n"]
 
   DS_IMP_CMD = "#{DSPACE_CMD} metadata-import"
-  DS_IMP_USER_EMAIL = "dspaceuser@example.com"
+  DS_IMP_USER_EMAIL = "dspaceuser@example.com"			# CUSTOMISE
   DS_IMP_LOG = "#{ROOT_DIR}/log/dspace_imp.log"
   DS_IMP_LOG2 = "#{ROOT_DIR}/log/dspace_imp.err"
 end

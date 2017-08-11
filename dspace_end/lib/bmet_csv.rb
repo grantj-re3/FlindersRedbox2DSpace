@@ -70,12 +70,12 @@ class BmetCsv
   # - 2 columns will be added to the output CSV ("id" and "collection")
   # - the REDBOX_DSPACE_ID_FIELD column sometimes requires a minor update
   def enhance_redbox_bmet_csv(dspace_bmet)
-    # Create an object to store all lines of the *output* CSV
     headers = nil
     line_num = 0
     ds_item_ids = dspace_bmet.item_ids_by_redbox_id	# Lookup via DSpace CSV
     ds_dspace_ids = dspace_bmet.dspace_ids_by_redbox_id	# Lookup via DSpace CSV
 
+    # Create an object to store all lines of the *output* CSV
     @s_bmet_csv = FasterCSV.generate(FCSV_OUT_OPTS){|csv_out_lines| 
       # Iterate thru each *input* object
       FasterCSV.foreach(@csv_fpath, FCSV_IN_OPTS){|line|
