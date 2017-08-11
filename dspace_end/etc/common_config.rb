@@ -7,6 +7,7 @@
 #
 ##############################################################################
 module CommonConfig
+  ROOT_DIR = File.expand_path("..", File.dirname(__FILE__))	# Root of this app
 
   DSPACE_HDL_PREFIX = "123456789"
   DSPACE_DATASET_COLLECTION_HDL = "#{DSPACE_HDL_PREFIX}/999000"
@@ -41,5 +42,23 @@ module CommonConfig
   # FasterCSV options for reading CSV
   FCSV_IN_OPTS = FCSV_OUT_OPTS
 
+  ############################################################################
+  FORCE_OVERWRITE_DSPACE_CSV_RESULT = true
+  HOME_DIR = "/home/dspacedir"	# ENV['HOME'] is tainted; cannot use with $SAFE > 0
+  DSPACE_CMD = "#{HOME_DIR}/dspace/bin/dspace"
+
+  # DSpace export info
+  DS_EXP_CMD = "#{DSPACE_CMD} metadata-export"
+  DS_EXP_LOG = "#{ROOT_DIR}/log/dspace_exp.log"
+  DS_EXP_LOG2 = "#{ROOT_DIR}/log/dspace_exp.err"
+
+  # DSpace import info
+  DS_IMP_IS_YES = false				# Confirm import of Dspace records?
+  DS_IMP_ECHO_YES_NO_CMD = "/bin/echo %s" % [DS_IMP_IS_YES ? "y" : "n"]
+
+  DS_IMP_CMD = "#{DSPACE_CMD} metadata-import"
+  DS_IMP_USER_EMAIL = "dspaceuser@example.com"
+  DS_IMP_LOG = "#{ROOT_DIR}/log/dspace_imp.log"
+  DS_IMP_LOG2 = "#{ROOT_DIR}/log/dspace_imp.err"
 end
 

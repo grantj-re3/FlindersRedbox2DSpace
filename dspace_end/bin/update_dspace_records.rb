@@ -48,19 +48,28 @@ $: << File.expand_path("../lib/libext", File.dirname(__FILE__))
 
 require "faster_csv"
 require "dspace_utils"
+require "object_extra"
+require "common_config"
 require "bmet_csv"
 
 ##############################################################################
 class BmetCsvPair
+  include CommonConfig
+
   DEBUG = false
 
-  ############################################################################
-  def initialize(ds_csv_fpath, rb_csv_fpath)
-    @ds_csv_fpath = ds_csv_fpath
-    @rb_csv_fpath = rb_csv_fpath
+  attr_reader :dspace_csv_fpath, :redbox_csv_fpath, :dspace_csv_result_fpath
 
-    @ds_bmet = BmetCsv.new(@ds_csv_fpath)
-    @rb_bmet = BmetCsv.new(@rb_csv_fpath)
+  ############################################################################
+  def initialize(redbox_csv_fpath, dspace_csv_fpath, dspace_csv_result_fpath)
+    @dspace_csv_fpath = dspace_csv_fpath
+    @redbox_csv_fpath = redbox_csv_fpath
+
+    @dspace_csv_result_fpath = dspace_csv_result_fpath
+    allow_write_dspace_csv_result
+
+    @ds_bmet = BmetCsv.new(@dspace_csv_fpath)
+    @rb_bmet = BmetCsv.new(@redbox_csv_fpath)
   end
 
   ############################################################################
@@ -93,19 +102,83 @@ class BmetCsvPair
     @rb_bmet.to_s
   end
 
+  ############################################################################
+  def allow_write_dspace_csv_result
+    will_allow = FORCE_OVERWRITE_DSPACE_CSV_RESULT || !File.exists?(@dspace_csv_result_fpath)
+    unless will_allow
+      STDERR.puts "ERROR: DSpace CSV result-file already exists at path below."
+      STDERR.puts "CSV path: #{@dspace_csv_result_fpath}"
+      STDERR.puts "You can overwrite by setting FORCE_OVERWRITE_DSPACE_CSV_RESULT."
+      exit 1
+    end
+    will_allow
+  end
+
+  ############################################################################
+  def write_csv_result
+    File.write_string(@dspace_csv_result_fpath, to_s) if allow_write_dspace_csv_result
+  end
+
+  ############################################################################
+  def export_from_dspace
+    cmd = "%s -f \"%s\" -i \"%s\" > \"%s\" 2> \"%s\"" % [
+      DS_EXP_CMD, @dspace_csv_fpath, DSPACE_DATASET_COLLECTION_HDL,
+      DS_EXP_LOG, DS_EXP_LOG2
+    ]
+    error_msg = "DSpace BMET export failed with exit-code {{res.exitstatus}}. See file #{File.basename(DS_EXP_LOG2)}"
+    self.class.run_simple_system_command(cmd, error_msg)
+  end
+
+  ############################################################################
+  def import_into_dspace
+    cmd = "%s |%s -f \"%s\" -e \"%s\" > \"%s\" 2> \"%s\"" % [
+      DS_IMP_ECHO_YES_NO_CMD,
+      DS_IMP_CMD, @dspace_csv_result_fpath, DS_IMP_USER_EMAIL,
+      DS_IMP_LOG, DS_IMP_LOG2
+    ]
+    error_msg = "DSpace BMET import failed with exit-code {{res.exitstatus}}. See file #{File.basename(DS_IMP_LOG2)}"
+    self.class.run_simple_system_command(cmd, error_msg)
+  end
+
+  ############################################################################
+  # Class methods
+  ############################################################################
+  def self.run_simple_system_command(cmd, msg_bad_exitstatus)
+    puts "cmd: '#{cmd}'" if DEBUG
+    `#{cmd}`
+    res = $?
+    unless res.exitstatus == 0
+      if msg_bad_exitstatus.to_s.empty?
+        STDERR.puts "Command: '#{cmd}'"
+        STDERR.puts "ERROR: The above command failed with exit-code #{res.exitstatus}."
+      else
+        STDERR.puts msg_bad_exitstatus.gsub(/\{\{res.exitstatus\}\}/, res.exitstatus.to_s)
+      end
+      exit res.exitstatus
+    end
+  end
+
+  ############################################################################
+  def self.main
+    $SAFE = 2
+    redbox_csv_fpath = "#{ROOT_DIR}/result/redbox_export.csv"
+    dspace_csv_fpath = "#{ROOT_DIR}/result/dspace_export.csv"
+    dspace_csv_result_fpath = "#{ROOT_DIR}/result/dspace_result.csv"
+
+    pair = BmetCsvPair.new(redbox_csv_fpath, dspace_csv_fpath, dspace_csv_result_fpath)
+    pair.verify
+    pair.export_from_dspace
+    pair.process_redbox_records
+
+    puts "Writing new DSpace-BMET CSV to #{File.basename(pair.dspace_csv_result_fpath)}"
+    pair.write_csv_result
+    pair.import_into_dspace
+  end
 end
 
 ##############################################################################
 # Main()
 ##############################################################################
-root_dir = File.expand_path("..", File.dirname(__FILE__))
-ds_csv_fpath = "#{root_dir}/result/dspace_export.csv"
-rb_csv_fpath = "#{root_dir}/result/redbox_export.csv"
-
-pair = BmetCsvPair.new(ds_csv_fpath, rb_csv_fpath)
-pair.verify
-pair.process_redbox_records
-
-puts "OUTPUT BMET CSV:"
-puts pair
+$SAFE = 1
+BmetCsvPair.main
 
