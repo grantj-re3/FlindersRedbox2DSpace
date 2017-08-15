@@ -10,7 +10,9 @@
 #
 ##############################################################################
 module CommonConfig
-  ROOT_DIR = File.expand_path("..", File.dirname(__FILE__))	# Root of this app
+  # Root of this app. That is, the parent of "bin" & "lib" folders.
+  # For $SAFE > 0, cannot use:  File.expand_path("..", File.dirname(__FILE__))
+  ROOT_DIR = "/absolute/path/to/dspace_end"			# CUSTOMISE
 
   DSPACE_HDL_PREFIX = "123456789"				# CUSTOMISE
   DSPACE_DATASET_COLLECTION_HDL = "#{DSPACE_HDL_PREFIX}/999000"	# CUSTOMISE
